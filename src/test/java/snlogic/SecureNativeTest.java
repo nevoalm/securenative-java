@@ -49,8 +49,8 @@ public class SecureNativeTest {
         SecureNative sn = new SecureNative("api", null);
     }
 
-    @Test
-    public void initializeSnTest()  throws Exception {
+    @Test(expected = Exception.class)
+    public void initializeSnWithEmptyApikeyTest()  throws Exception {
         SecureNative sn = new SecureNative("", null);
     }
 

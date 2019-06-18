@@ -4,21 +4,21 @@ import com.google.common.base.Strings;
 import models.ActionResult;
 import models.ActionType;
 import models.EventOptions;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
-@Component
 public class VerifyRequestMiddleware implements Filter {
-    @Autowired
+
     private SecureNative sn;
 
-    @Autowired
-    Utils utils;
+    private Utils utils;
+
+    public VerifyRequestMiddleware(SecureNative sn) {
+        this.sn = sn;
+    }
 
 
     @Override
