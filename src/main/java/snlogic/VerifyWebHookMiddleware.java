@@ -19,7 +19,6 @@ public class VerifyWebHookMiddleware implements Filter {
 
     private final String HEADER_KEY = "X-SECURENATIVE";
 
-
     @Override
     public void init(FilterConfig filterConfig) {
 
@@ -35,7 +34,7 @@ public class VerifyWebHookMiddleware implements Filter {
         }
 
         try {
-            String digest = "sha1=" + utils.calculateRFC2104HMAC(payload, this.sn.getSnOptions().getApiKey());
+            String digest = "sha1=" + utils.calculateRFC2104HMAC(payload,sn.getApiKey());
             String checksum = req.getHeader(HEADER_KEY);
             if (checksum == null || digest != checksum) {
                 res.sendError(500,"Request body digest did not match ");

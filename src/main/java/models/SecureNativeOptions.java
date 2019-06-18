@@ -1,30 +1,20 @@
 package models;
 
 public class SecureNativeOptions {
-    private String apiKey;
     private String apiUrl;
     private int interval;
     private long maxEvents;
-    private int timeout;
+    private long timeout;
     private Boolean autoSend;
 
     public SecureNativeOptions(){}
-    public SecureNativeOptions(String apiKey, String apiUrl, int interval, long maxEvents, int timeout, boolean autoSend) {
-        this.apiKey = apiKey;
+
+    public SecureNativeOptions(String apiUrl, int interval, long maxEvents, int timeout, boolean autoSend) {
         this.interval = interval;
         this.maxEvents = maxEvents;
         this.apiUrl = apiUrl;
         this.timeout = timeout;
         this.autoSend = autoSend;
-    }
-
-
-    public String getApiKey() {
-        return apiKey;
-    }
-
-    public void setApiKey(String apiKey) {
-        this.apiKey = apiKey;
     }
 
     public String getApiUrl() {
@@ -51,11 +41,11 @@ public class SecureNativeOptions {
         this.maxEvents = maxEvents;
     }
 
-    public int getTimeout() {
+    public long getTimeout() {
         return timeout;
     }
 
-    public void setTimeout(int timeout) {
+    public void setTimeout(long timeout) {
         this.timeout = timeout;
     }
 

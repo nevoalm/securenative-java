@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import models.ClientFingurePrint;
 import org.apache.http.conn.util.InetAddressUtils;
-import org.springframework.stereotype.Service;
 import org.springframework.web.util.WebUtils;
 
 import javax.crypto.Mac;
@@ -14,11 +13,9 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.security.SignatureException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Service
 public class Utils {
     private static String[] ipHeaders = {"x-forwarded-for", "x-client-ip", "x-real-ip", "x-forwarded", "x-cluster-client-ip", "forwarded-for", "forwarded", "via"};
     private static String COOKIE_NAME = "_sn";
@@ -46,7 +43,6 @@ public class Utils {
         try {
             return mapper.readValue(json, ClientFingurePrint.class);
         } catch (Exception e) {
-            e.printStackTrace();
             return null;
         }
     }
@@ -55,7 +51,7 @@ public class Utils {
         if (request == null) {
             return EMPTY;
         }
-        Optional<String> bestCandidate = null;
+        Optional<String> bestCandidate = Optional.empty();
         String header = "";
         for (int i = 0; i < ipHeaders.length; i++) {
 
@@ -69,7 +65,7 @@ public class Utils {
                     return candidates.get(0);
                 }
             }
-            if (Strings.isNullOrEmpty(bestCandidate.get())) {
+            if (!bestCandidate.isPresent()) {
                 bestCandidate = candidates.stream().filter(x -> isLoopBack(x)).findFirst();
             }
         }
@@ -83,7 +79,7 @@ public class Utils {
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
-        return false;//TODO: verify this logic with Alex
+        return false;
     }
 
     private boolean isPrivateIPAddress(String ipAddress) {
@@ -108,7 +104,7 @@ public class Utils {
         return formatter.toString();
     }
 
-    public String calculateRFC2104HMAC(String data, String key) throws SignatureException, NoSuchAlgorithmException, InvalidKeyException {
+    public String calculateRFC2104HMAC(String data, String key) throws NoSuchAlgorithmException, InvalidKeyException {
         SecretKeySpec signingKey = new SecretKeySpec(key.getBytes(), HMAC_SHA1_ALGORITHM);
         Mac mac = Mac.getInstance(HMAC_SHA1_ALGORITHM);
         mac.init(signingKey);

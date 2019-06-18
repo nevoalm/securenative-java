@@ -1,63 +1,67 @@
 package snlogic;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
-import com.google.gson.Gson;
 import models.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import org.apache.http.HttpHeaders;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.message.BasicHeader;
 
 import javax.servlet.http.HttpServletRequest;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.time.Instant;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
-@Service("snEventMAnager")
+import static com.google.common.base.Strings.isNullOrEmpty;
+
 public class SnEventManager implements EventManager {
     private final String SN_COOKIE_NAME = "_sn";
     private final String USERAGENT_HEADER = "user-agent";
-    private final String API_DEFAULT_URL = "https://api.securenative.com/v1/collector";
-    private final String POST = "POST";
     private final String EMPTY = "";
-    private FetchOptions defaultFetchOptions;
+    private final String USER_AGENT_VALUE = "snlogic.SecureNative-java";
+    private final String SN_VERSION = "SN-Version";
+    private final String SN_VERSION_VALUE = "";//TODO: figure out where the version come from maybe env var
     private SecureNativeOptions options;
-    private List<FetchOptions> events;
-    private boolean sendEnabled = true;
+    private CloseableHttpClient client;
+    private String apiKey;
+    private Utils utils;
 
 
-    @Autowired
-    public  Utils utils;
 
-    public SnEventManager(){}
-    public SnEventManager(SecureNativeOptions options) {
-        this.defaultFetchOptions = new FetchOptions(options != null && options.getApiUrl() != null ? options.getApiUrl() : API_DEFAULT_URL, options.getApiKey(), POST, options.getTimeout());
-        this.options = options;
-        this.events = new ArrayList<>();
-        startEventsPersist();
-    }
+    public SnEventManager(String apiKey, SecureNativeOptions options) throws Exception {
+        if (isNullOrEmpty(apiKey) || options == null) {
+            throw new Exception("You must pass your snlogic.SecureNative api key");
 
-    private void sendEvents() {
-        if (this.events.size() > 0 && this.sendEnabled) {
-            FetchOptions fetchEvent = this.events.remove(0);
-            if (fetchEvent.fetch() == null) {
-                this.events.add(0, fetchEvent);
-                double backOff = Math.ceil(Math.random() * 10) * 1000;
-                this.sendEnabled = false;
-                this.setTimeout(() -> this.sendEnabled = true, (int) backOff);
-            }
         }
+
+        this.client = initializeHttpClient(options);
+        this.options = options;
+        this.apiKey = apiKey;
+        utils = new Utils();
     }
 
     @Override
     public SnEvent buildEvent(HttpServletRequest request, EventOptions options) {
         String decodedCookie = utils.base64decode(utils.getCookie(request, options != null && !Strings.isNullOrEmpty(options.getCookieName()) ? options.getCookieName() : SN_COOKIE_NAME));
         ClientFingurePrint clientFP = utils.parseClientFP(decodedCookie);
-        String eventype = Strings.isNullOrEmpty(options.getEventType()) ? EventTypes.types.get(EventTypes.EventKey.LOG_IN) : options.getEventType();
+        String eventype =  options == null || Strings.isNullOrEmpty(options.getEventType()) ? EventTypes.types.get(EventTypes.EventKey.LOG_IN) : options.getEventType();
         String cid = clientFP != null ? clientFP.getCid() : EMPTY;
         String vid = UUID.randomUUID().toString();
         String fp = clientFP != null ? clientFP.getFp() : EMPTY;
         String ip = options != null && options.getIp() != null ? options.getIp() : utils.remoteIpFromRequest(request);
         String remoteIP = request.getRemoteAddr();
         String userAgent = options != null && options.getUserAgent() != null ? options.getUserAgent() : request.getHeader(USERAGENT_HEADER);
-        User user = options.getUser() != null ? options.getUser() : new User("anonymous", null, null);
+        User user = options != null && options.getUser() != null ? options.getUser() : new User("anonymous", null, null);
         String device = options != null && options.getDevice() != null ? options.getDevice() : "";
         Map params = options != null && options.getParams() != null ? options.getParams() : new HashMap();
         return new SnEvent(eventype, cid, vid, fp, ip, remoteIP, userAgent, user, Instant.now().getEpochSecond(), device, params);
@@ -65,29 +69,37 @@ public class SnEventManager implements EventManager {
 
     @Override
     public ActionResult sendSync(SnEvent event, String requestUrl) {
-        FetchOptions fetchEvent = new FetchOptions(this.options.getApiUrl(), this.options.getApiKey(), this.defaultFetchOptions.getMethod(), this.options.getTimeout());
-        String response = fetchEvent.fetch();
-        if (response == null) {
-            return new ActionResult(ActionType.type.ALLOW, 0.0, new String[0]);
-        }
-        Gson gson = new Gson();
+        ObjectMapper mapper = new ObjectMapper();
+        String stringEvent = null;
+        String line;
         try {
-            return gson.fromJson(response, ActionResult.class);
-        } catch (Exception e) {
-            System.err.println(e);
+            stringEvent = mapper.writeValueAsString(event);
+
+            HttpPost httpPost = new HttpPost(requestUrl);
+            httpPost.setEntity(new StringEntity(stringEvent));
+
+            HttpResponse response = this.client.execute(httpPost);
+            BufferedReader rd = new BufferedReader(
+                   new InputStreamReader(response.getEntity().getContent()));
+
+            StringBuffer result = new StringBuffer();
+            while ((line = rd.readLine()) != null) {
+                result.append(line);
+            }
+            return mapper.readValue(result.toString(), ActionResult.class);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+
         return new ActionResult(ActionType.type.ALLOW, 0.0, new String[0]);
     }
 
     @Override
     public void sendAsync(SnEvent event, String url) {
-        if (this.events.size() >= this.options.getMaxEvents()) {
-            this.events.remove(0);
-        }
-        this.events.add(0, new FetchOptions(this.options.getApiUrl(), this.options.getApiKey(), this.defaultFetchOptions.getMethod(), this.options.getTimeout()));
+        //TODO: will be implemented in future version
     }
 
-    private void setTimeout(Runnable runnable, int delay) {
+    private void setTimeout(Runnable runnable, int delay) { // Will be used in sendAsync
         new Thread(() -> {
             try {
                 Thread.sleep(delay);
@@ -98,15 +110,12 @@ public class SnEventManager implements EventManager {
         }).start();
     }
 
-    private void startEventsPersist() {
-        if (this.options.isAutoSend()) {
-            new Timer().scheduleAtFixedRate(new TimerTask() {
-                @Override
-                public void run() {
-                    sendEvents();
-                }
-            }, 0, this.options.getInterval());
-        }
+    private CloseableHttpClient initializeHttpClient(SecureNativeOptions options){
+        return HttpClients.custom().setUserAgent(USER_AGENT_VALUE)
+                .setConnectionTimeToLive(options.getTimeout(), TimeUnit.MILLISECONDS)
+                .setDefaultHeaders(Arrays.asList(new BasicHeader(SN_VERSION, SN_VERSION_VALUE),
+                        new BasicHeader(HttpHeaders.AUTHORIZATION, this.apiKey)))
+                .build();
     }
 }
 
