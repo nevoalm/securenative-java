@@ -1,6 +1,7 @@
 package snlogic;
 
 import models.EventOptions;
+import models.SecureNativeOptions;
 import models.User;
 import org.junit.Before;
 import org.junit.Test;
@@ -70,7 +71,6 @@ public class SecureNativeTest {
         };
         EventOptions options = new EventOptions("ip", "remoteIP", "userAgent" , "device", new User("1","name","email") , "cookieName" , "eventType", mymap);
         sn.track(options, request);
-
-
     }
+
 }

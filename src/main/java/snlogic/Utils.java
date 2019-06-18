@@ -8,6 +8,7 @@ import org.springframework.web.util.WebUtils;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -31,14 +32,25 @@ public class Utils {
             return null;
         }
         cookieName = Strings.isNullOrEmpty(cookieName) ? COOKIE_NAME : cookieName;
-        return WebUtils.getCookie(request, cookieName).getValue();
+        Cookie cookie = WebUtils.getCookie(request, cookieName);
+        if (cookie != null){
+            return WebUtils.getCookie(request, cookieName).getValue();
+        }
+        return null;
+
     }
 
     public String base64decode(String encodedString) {
+        if (Strings.isNullOrEmpty(encodedString)){
+            return "";
+        }
         return String.valueOf(Base64.getDecoder().decode(encodedString));
     }
 
     public ClientFingurePrint parseClientFP(String json) {
+        if(Strings.isNullOrEmpty(json)){
+            return null;
+        }
         ObjectMapper mapper = new ObjectMapper();
         try {
             return mapper.readValue(json, ClientFingurePrint.class);
