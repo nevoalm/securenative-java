@@ -82,6 +82,7 @@ public class SnEventManager implements EventManager {
             httpPost.addHeader(HttpHeaders.AUTHORIZATION,this.apiKey);
             httpPost.addHeader(USERAGENT_HEADER,USER_AGENT_VALUE);
             httpPost.addHeader(SN_VERSION,getVersion());
+            httpPost.addHeader("Accept","application/json");
 
             httpPost.setEntity(new StringEntity(stringEvent));
 
